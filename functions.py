@@ -338,11 +338,11 @@ def get_frame_forces_and_displacements(K_global,DoF,DoC,Fp,Up,U_u,Fu):
     Fu = Fu.flatten()
 
     K_UU = K_global[0:DoF, 0:DoF]
-    K_UP = K_global[0:DoF, DoF: DoF+DoC]
-    K_PU = K_global[DoF:DoF+DoC, 0:DoF]
-    K_PP = K_global[DoF:DoF+DoC, DoF:DoF+DoC] 
+    K_UP = K_global[0:DoF, DoF: DoF + DoC]
+    K_PU = K_global[DoF:DoF + DoC, 0:DoF]
+    K_PP = K_global[DoF:DoF + DoC, DoF:DoF + DoC] 
     F = Fp - np.matmul(K_UP, Up)
-    U_u = np.matmul(np.linalg.inv(K_UU), F) # np.linalg.solve() More efficient?
+    U_u = np.linalg.solve(K_UU, F)
     Fu = np.matmul(K_PU, U_u) + np.matmul(K_PP, Up)
 
     return (U_u, Fu)
@@ -358,18 +358,18 @@ def update_frame_nodes(ENL, U_u, node_list, Fu, node_restraints):
         for j in range(0, DoP):
             if ENL[i, 2 + j] == 1:
                 DoF += 1
-                ENL[i,2 + 3*DoP + j] = U_u[DoF-1,0]
+                ENL[i,2 + 3 * DoP + j] = U_u[DoF - 1,0]
             else:
                 DoC += 1
-                ENL[i,2 + 4*DoP + j] = Fu[DoC-1,0]
+                ENL[i,2 + 4 * DoP + j] = Fu[DoC - 1,0]
 
     return ENL
 
 def get_frame_internal_forces(ENL, element_list, element_properties, element_distributed_loads, DoP):
     number_elements = element_list.shape[0]
-    print('-'*75)
+    print('-' * 75)
     print('Ni, Vi, Mi, Nj, Vj, Mj')
-    print('-'*75)
+    print('-' * 75)
     # Pre-defining the element internal forces array
     element_internal_forces = np.zeros([number_elements, 2*DoP])
     # Pre-defining an element angle array
@@ -377,14 +377,7 @@ def get_frame_internal_forces(ENL, element_list, element_properties, element_dis
     # Iterating over each element
     for i in range(number_elements):
         element_property = element_properties[i, :]
-        '''
-        E = element_property[2] # Youngs Modulus [Pa]
-        b = element_property[0] # Width [m]
-        h = element_property[1] # Heigth [m]
 
-        A = b*h # Cross Section Area [m^2]
-        I = (b*h**3)/12 # Inertia [m^4]
-        '''
         A = element_property[0] # Area [m^2]
         I = element_property[1] # Inertia [m^4]
         E = element_property[2] # Youngs Modulus [Pa]
@@ -403,19 +396,19 @@ def get_frame_internal_forces(ENL, element_list, element_properties, element_dis
         dy = yj - yi
 
         # Rotation Matrix [Q]
-        if dx==0:
-            if dy>0:
-                beta = math.pi/2
+        if dx == 0:
+            if dy > 0:
+                beta = math.pi / 2
             else:
-                beta = -math.pi/2
+                beta = -math.pi / 2
         else:
-            beta = math.atan(dy/dx)
+            beta = math.atan(dy / dx)
 
         # Storing the element angle
         element_angles[i] = beta
 
         # Element Length
-        l = math.sqrt((yj - yi)**2 + (xj - xi)**2)  # Length [m]
+        l = math.sqrt((yj - yi) ** 2 + (xj - xi) ** 2)  # Length [m]
         # Rotation Matrix [Q]
         c = math.cos(beta)
         s = math.sin(beta)
@@ -427,41 +420,41 @@ def get_frame_internal_forces(ENL, element_list, element_properties, element_dis
                     [0, 0, 0, 0, 0, 1]])
 
         # local Stiffness Matrix [k]
-        k = np.array([[E*A/l, 0, 0, -E*A/l, 0, 0],
-                    [0, 12*E*I/(l**3), 6*E*I/(l**2), 0, -12*E*I/(l**3), 6*E*I/(l**2)],
-                    [0, 6*E*I/(l**2), 4*E*I/l, 0, -6*E*I/(l**2), 2*E*I/l],
-                    [-E*A/l, 0, 0, E*A/l, 0, 0],
-                    [0, -12*E*I/(l**3), -6*E*I/(l**2), 0, 12*E*I/(l**3), -6*E*I/(l**2)],
-                    [0, 6*E*I/(l**2), 2*E*I/l, 0, -6*E*I/(l**2), 4*E*I/l]])
+        k = np.array([[E * A / l, 0, 0, -E * A / l, 0, 0],
+                    [0, 12 * E * I / (l ** 3), 6 * E * I/(l ** 2), 0, -12 * E * I/(l ** 3), 6 * E * I/(l ** 2)],
+                    [0, 6 * E * I / (l ** 2), 4 * E * I / l, 0, - 6 * E * I / (l ** 2), 2* E * I / l],
+                    [-E * A / l, 0, 0, E * A / l, 0, 0],
+                    [0, -12 * E * I / (l ** 3), -6 * E * I / (l ** 2), 0, 12 * E * I / (l ** 3), -6 * E * I/(l ** 2)],
+                    [0, 6 * E * I / (l ** 2), 2 * E * I / l, 0, -6 * E * I / (l ** 2), 4 * E * I / l]])
         
         # Get node global displacements
-        node_ini_disp = ENL[node_ini-1, int(2+3*DoP):int(2+4*DoP)]
-        node_end_disp = ENL[node_end-1, int(2+3*DoP):int(2+4*DoP)]
+        node_ini_disp = ENL[node_ini - 1, int(2 + 3 * DoP):int(2 + 4 * DoP)]
+        node_end_disp = ENL[node_end - 1, int(2 + 3 * DoP):int(2 + 4 * DoP)]
 
         # Assembling element displacements
-        element_global_disp = np.zeros(2*DoP) # Pre-defining
+        element_global_disp = np.zeros(2 * DoP) # Pre-defining
         element_global_disp[0:DoP] = node_ini_disp
-        element_global_disp[DoP:2*DoP] = node_end_disp
+        element_global_disp[DoP:2 * DoP] = node_end_disp
 
         # Local Displacement
-        element_local_disp = Q@element_global_disp
+        element_local_disp = Q @ element_global_disp
 
         # Internal Local Forces
-        element_internal_force = k@element_local_disp
+        element_internal_force = k @ element_local_disp
         # If there is distributed loads we need to actualize the internal forces of the frame
         if element_distributed_loads[i] != 0:
             w = element_distributed_loads[i]
-            m_ini = w*(l**2)/12
-            m_end = -w*(l**2)/12
-            v_ini = w*l/2
-            v_end = w*l/2
+            m_ini = w * (l ** 2) /12
+            m_end = -w * (l ** 2) /12
+            v_ini = w * l / 2
+            v_end = w * l / 2
             element_internal_force = np.array([0, v_ini, m_ini, 0, v_end, m_end]) + element_internal_force
 
-        print('The internal local Forces of the',i+1,'-th element are:')
+        print('The internal local Forces of the',i + 1,'-th element are:')
         print(element_internal_force)
 
         # Storing the internal forces
-        element_internal_forces[i,:] = element_internal_force
+        element_internal_forces[i, :] = element_internal_force
 
-    print('-'*75)
+    print('-' * 75)
     return (element_internal_forces, element_angles)
